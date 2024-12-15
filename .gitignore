@@ -1,0 +1,17 @@
+node_modules
+dist
+
+# Yarn
+.cache
+.yarnrc
+.yarn/cache/
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+*.tgz
+
+.vscode

@@ -1,0 +1,47 @@
+{
+  "name": "redux-multiplayer",
+  "version": "0.1.0",
+  "description": "A multiplayer middleware for Redux",
+  "module": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build" : "tsc -p src/tsconfig.commonjs.json && tsc -p src/tsconfig.modules.json",
+    "watch-cjs" : "tsc -w -p src/tsconfig.commonjs.json",
+    "watch-mod" : "tsc -w -p src/tsconfig.modules.json"
+  },
+  "keywords": [
+    "redux",
+    "multiplayer",
+    "websockets",
+    "fetch"
+  ],
+  "main": "dist/cjs/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types":"./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/cjs/index.js"
+    }
+  },
+  "author": "Jonas Lund",
+  "license": "ISC",
+  "dependencies": {
+    "redux": "^5.0.1",
+    "uuid": "^11.0.3"
+  },
+  "peerDependenciesMeta": {
+    "@reduxjs/toolkit": {
+      "optional": true
+    },
+    "ws": {
+      "optional": true
+    }
+  },
+  "peerDependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13"
+  }
+}
