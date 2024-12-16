@@ -18,6 +18,7 @@ interface ReduxMPServerIdentity {
 }
 
 interface ReduxMPServerClientContext {
+    clientId:string;
     contextId:string;
     identity?:ReduxMPServerIdentity;
     sendToClient:(msg:ServerToClientMessage)=>void;
@@ -103,7 +104,7 @@ export const createReduxMultiplayerServer = <S=unknown,A=unknown>(options:ReduxM
                         await Promise.race([
                             sleep(10000),
                             new Promise(res=>{
-                                contextAwaken = ()=>{  wasAwaken=true;   }
+                                contextAwaken = ()=>{  wasAwaken=true; res(null);  }
                             })
                         ]);
                         contextAwaken = ()=>{}
@@ -128,12 +129,13 @@ export const createReduxMultiplayerServer = <S=unknown,A=unknown>(options:ReduxM
 
             const connectionPendingMessages:ClientToServerMessage[] = [];
 
-            const clientContext:ReduxMPServerClientContext 
+            const clientContext: ReduxMPServerClientContext
                 = {
-                contextId:key,
-                sendToClient:msg=>socket.send(JSON.stringify(msg)),
+                clientId: v7uuid(),
+                contextId: key,
+                sendToClient: msg => socket.send(JSON.stringify(msg)),
                 // initially we will only store them since hydration can take a little while.
-                processFromClient: msg=>connectionPendingMessages.push(msg),
+                processFromClient: msg => connectionPendingMessages.push(msg),
                 close() {
                     const ctx = contexts.get(key);
                     if (ctx) {
@@ -144,7 +146,7 @@ export const createReduxMultiplayerServer = <S=unknown,A=unknown>(options:ReduxM
                     }
                     try {
                         socket.close();
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             };
 
@@ -225,6 +227,12 @@ export const createReduxMultiplayerServer = <S=unknown,A=unknown>(options:ReduxM
                                 clientContext.sendToClient({ type: "replaceAction", fromId: msg.actionId, toId: id, action: replacedAction })
                             } else if (id !== msg.actionId) {
                                 clientContext.sendToClient({ type: "renameId", fromId: msg.actionId, toId: id })
+                            }
+                            // now send to all other clients as well.
+                            for(let [sock,iterClient] of context.socketToClient) {
+                                if (iterClient.clientId===clientContext.clientId)
+                                    continue;
+                                iterClient.sendToClient({type:"action",action:replacedAction ?? msg.actionData,id})
                             }
                         } catch (e) {
                             if (e instanceof RejectionError) {

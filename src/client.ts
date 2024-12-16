@@ -135,6 +135,12 @@ export function applyMultiplayer(clientOptions:ReduxMPClientEnhancerOptions):Sto
                         } as ReplacePartAction as any)
                         break;
                     }
+                    case "action": {
+                        // TODO: if we have-un-acked we need to rewind!!
+                        state.lastSeen = msg.id;
+                        store.dispatch(msg.action as any);
+                        break;
+                    }
                 }
             }
 

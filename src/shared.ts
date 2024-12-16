@@ -18,7 +18,7 @@ export type ServerToClientMessage =
     // replace-state (needed?)
     {type:"replaceState",state:any} |
     // actions to be processed.
-    {type:"actions",actions:ServerToClientAction[]} |
+    {type:"action",action:ServerToClientAction,id:string;} |
     {type:"replaceAction",fromId:string,toId:string,action:any}|
     {type:"renameId",fromId:string, toId:string}|
     {type:"rejectAction"; message:string; actionId:string;};
