@@ -47,7 +47,7 @@ things such as authentication to the user with callbacks.
 The client is created as an Redux enhancer and is then supplied to the store
 when creating, it can pass through other enhancers such as applyMiddleware.
 
-The todoId in the below code is assumed to be handled by the webapp such as
+The `todoId` in the below code is assumed to be handled by the webapp such as
 coming from the route.
 
 ```
