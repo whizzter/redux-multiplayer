@@ -5,9 +5,9 @@
   "module": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build" : "tsc -p src/tsconfig.commonjs.json && tsc -p src/tsconfig.modules.json",
-    "watch-cjs" : "tsc -w -p src/tsconfig.commonjs.json",
-    "watch-mod" : "tsc -w -p src/tsconfig.modules.json"
+    "build": "tsc -p src/tsconfig.commonjs.json && tsc -p src/tsconfig.modules.json",
+    "watch-cjs": "tsc -w -p src/tsconfig.commonjs.json",
+    "watch-mod": "tsc -w -p src/tsconfig.modules.json"
   },
   "keywords": [
     "redux",
@@ -19,7 +19,7 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "types":"./dist/index.d.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/cjs/index.js"
     }
@@ -42,6 +42,8 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.13"
+    "@types/ws": "^8.5.13",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
   }
 }
