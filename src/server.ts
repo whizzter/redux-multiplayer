@@ -1,4 +1,4 @@
-import { createStore, Reducer, Store } from "redux";
+import { Action, createStore, Reducer, Store } from "redux";
 import WebSocket from "ws"
 import { v7 as v7uuid } from "uuid"
 
@@ -36,17 +36,23 @@ interface ReduxMPServerContext {
     schedule:(task:()=>Promise<void>)=>void;
 }
 
-interface ActionFilterData<S,A> {
+export interface MPServerActionFilterContext<S,A> {
     key:string;
-    action:A;
+    getState():S;
     schedule:(task:()=>Promise<void>)=>void;
-    replaceAction:(action:A)=>void;
 }
+
+interface MPFilterFaultAction {
+    type:"reject"|"needAuth"|"badAuthh",
+    message:string
+}
+
+type ReduxMPServerActionFilter<S,A> = (ctx:MPServerActionFilterContext<S,A>,data:A)=>"reject"|"needAuth"|"badAuth"|MPFilterFaultAction|Promise<A>|A;
 
 interface ReduxMPServerOptions<S,A> {
     reducer:Reducer<S>;
     hydrate:(key:string,clientIdentity:null|ReduxMPServerIdentity)=>Promise<null|S>;
-    actionFilter:(data:ActionFilterData<S,A>)=>A;
+    actionFilter:ReduxMPServerActionFilter<S,A>;
 }
 
 
@@ -186,6 +192,14 @@ export const createReduxMultiplayerServer = <S=unknown,A=unknown>(options:ReduxM
 
             //console.log("ContextUUID:"+context.lastAction);
 
+            const filterContext : MPServerActionFilterContext<S,A> = {
+                getState:()=>(context.store.getState() as S),
+                key,
+                schedule(task:()=>Promise<void>) {
+                    context.schedule(task);
+                }
+            };
+
             // replace the process function once we've connected to the context
             clientContext.processFromClient = msg => {
                 // TODO: authorize!
@@ -200,50 +214,79 @@ export const createReduxMultiplayerServer = <S=unknown,A=unknown>(options:ReduxM
                         break;
                     }
                     case "action": {
+                        // ignore non-object messages.
+                        if ("object"!==typeof msg.actionData)
+                            return;
+
                         const next = v7uuid();
                         // if the supplied id is too old or seems to be in the "future" then we'll replace it
                         let id =
-                            msg.actionId < context.lastAction || msg.actionId > next
-                                ? next
-                                : msg.actionId;
-                        try {
-                            let replacedAction:undefined|A = undefined;
+                          msg.actionId < context.lastAction ||
+                          msg.actionId > next
+                            ? next
+                            : msg.actionId;
 
-                            const toSend =
-                                options.actionFilter
-                                ?options.actionFilter({
-                                    key,
-                                    action:msg.actionData,
-                                    schedule:context.schedule,
-                                    replaceAction:action=>replacedAction=action
-                                 })
-                                :msg.actionData;
+                        const filteredAction = options.actionFilter
+                          ? options.actionFilter(filterContext, msg.actionData)
+                          : msg.actionData;
 
-                            //console.log("Entering client action", msg.actionData);
+                        const filteredType = filteredAction?.type ?? filteredAction;
+                        switch (filteredType) {
+                          case "reject":
+                          case "needAuth":
+                          case "badAuth": {
+                            const respTypes = {
+                              needAuth: "needAuthentication",
+                              badAuth: "badAuthorization",
+                              reject: "rejectAction",
+                            };
+                            const respType = respTypes[
+                              filteredType as keyof typeof respTypes
+                            ] as
+                              | "needAuthentication"
+                              | "badAuthorization"
+                              | "rejectAction";
 
-                            context.store.dispatch(toSend);
-                            //console.log("Post Server change:",context.store.getState());
-                            if (undefined!=replacedAction) {
-                                clientContext.sendToClient({ type: "replaceAction", fromId: msg.actionId, toId: id, action: replacedAction })
-                            } else if (id !== msg.actionId) {
-                                clientContext.sendToClient({ type: "renameId", fromId: msg.actionId, toId: id })
-                            }
-                            // now send to all other clients as well.
-                            for(let [sock,iterClient] of context.socketToClient) {
-                                if (iterClient.clientId===clientContext.clientId)
-                                    continue;
-                                iterClient.sendToClient({type:"action",action:replacedAction ?? msg.actionData,id})
-                            }
-                        } catch (e) {
-                            if (e instanceof RejectionError) {
-                                clientContext.sendToClient({ type:"rejectAction",actionId:msg.actionId, message:e.message});
-                            } else if (e instanceof AuthenticationError) {
-                                clientContext.sendToClient({ type: "needAuthentication" });
-                                return;
-                            } else if (e instanceof AuthorizationError) {
-                                clientContext.sendToClient({ type: "badAuthorization",actionId:msg.actionId, });
-                                return;
-                            } else throw e;
+                            clientContext.sendToClient({
+                              type: respType,
+                              actionId: msg.actionId,
+                              message:
+                                filteredAction?.message ??
+                                "no extra message given for " + respType,
+                            });
+                            return;
+                          }
+                        }
+
+                        const isReplaced = filteredAction !== msg.actionData;
+
+                        //console.log("Entering client action", msg.actionData);
+
+                        context.store.dispatch(filteredAction);
+                        //console.log("Post Server change:",context.store.getState());
+                        if (isReplaced) {
+                          clientContext.sendToClient({
+                            type: "replaceAction",
+                            fromId: msg.actionId,
+                            toId: id,
+                            action: filteredAction,
+                          });
+                        } else if (id !== msg.actionId) {
+                          clientContext.sendToClient({
+                            type: "renameId",
+                            fromId: msg.actionId,
+                            toId: id,
+                          });
+                        }
+                        // now send to all other clients as well.
+                        for (let [sock, iterClient] of context.socketToClient) {
+                          if (iterClient.clientId === clientContext.clientId)
+                            continue;
+                          iterClient.sendToClient({
+                            type: "action",
+                            action: filteredAction,
+                            id,
+                          });
                         }
 
                         break;
